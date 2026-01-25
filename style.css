@@ -239,3 +239,19 @@ td input::placeholder {
     color: #d0d3d6;
     font-size: 13px;
 }
+/* Efeito de girar no botão enquanto envia */
+.spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid #ffffff;
+    border-bottom-color: transparent;
+    border-radius: 50%;
+    display: inline-block;
+    animation: rotation 1s linear infinite;
+    margin-right: 8px;
+}
+
+@keyframes rotation {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
