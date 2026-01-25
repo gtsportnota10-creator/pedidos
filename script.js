@@ -66,9 +66,9 @@ function adicionarGrupoModelagem() {
                 <thead>
                     <tr>
                         <th style="width: 30%;">Nome</th>
-                        <th style="width: 15%;">Tam</th>
-                        <th style="width: 15%;">Nº</th>
-                        <th style="width: 15%;">Qtd</th>
+                        <th style="width: 15%;">Tamanho</th>
+                        <th style="width: 15%;">Número</th>
+                        <th style="width: 15%;">Quantidade</th>
                         <th style="width: 25%;">Adicional</th>
                         <th></th>
                     </tr>
@@ -99,11 +99,11 @@ function adicionarLinhaItem(botao) {
     const corpo = botao.closest('.grupo-modelagem').querySelector('.corpo-tabela-itens');
     const tr = document.createElement('tr');
     tr.innerHTML = `
-        <td><input type="text" class="i-nome" placeholder="Produto"></td>
+        <td><input type="text" class="i-nome" placeholder="Nome"></td>
         <td><input type="text" class="i-tam" placeholder="G" oninput="this.value = this.value.toUpperCase()"></td>
         <td><input type="text" class="i-num" placeholder="Nº"></td>
         <td><input type="number" class="i-qtd" value="1"></td>
-        <td><input type="text" class="i-adicional" placeholder="Obs"></td>
+        <td><input type="text" class="i-adicional" placeholder="Conjunto"></td>
         <td><button class="btn-del" onclick="this.closest('tr').remove()">✕</button></td>
     `;
     corpo.appendChild(tr);

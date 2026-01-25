@@ -171,3 +171,15 @@ button { border: none; cursor: pointer; transition: all 0.2s ease; font-family: 
     .header { padding: 30px 15px; border-radius: 0 0 24px 24px; margin: -10px -10px 20px -10px; }
     .grid-campos { grid-template-columns: 1fr; gap: 0; }
 }
+/* Muda a cor dos textos de exemplo (placeholders) em todos os campos */
+input::placeholder, 
+textarea::placeholder {
+    color: #d1d4d6; /* Cor cinza suave (você pode trocar pelo código que desejar) */
+    opacity: 1;    /* Garante que a cor apareça com clareza no Firefox */
+}
+
+/* Caso queira mudar especificamente os exemplos da tabela */
+td input::placeholder {
+    color: #d0d3d6;
+    font-size: 13px;
+}
