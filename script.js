@@ -134,11 +134,12 @@ async function enviarPedido() {
     btn.disabled = true;
     btn.innerText = "⏳ ENVIANDO PEDIDO...";
 
+   
+
     let conteudo = `NOME;${nome}\nTELEFONE;${fone}\nOBS;${obsGerais}\n`;
     let temItemValido = false;
 
     document.querySelectorAll('.grupo-modelagem').forEach(grupo => {
-        // LÓGICA: Se escolheu "OUTRA", usa o valor do input manual
         const selectMod = grupo.querySelector('.i-mod-nome');
         const inputManual = grupo.querySelector('.i-mod-manual');
         
@@ -146,8 +147,9 @@ async function enviarPedido() {
         if (nomeMod === "OUTRA") {
             nomeMod = inputManual.value || "Outra não definida";
         }
+        // Garante que o nome da modelagem não tenha ponto e vírgula para não quebrar o sistema
+        nomeMod = nomeMod.replace(/;/g, "").trim().toUpperCase();
 
-        let itensDoGrupo = "";
         grupo.querySelectorAll('.corpo-tabela-itens tr').forEach(row => {
             const item = row.querySelector('.i-nome').value;
             if (item) {
@@ -156,14 +158,14 @@ async function enviarPedido() {
                 const num = row.querySelector('.i-num').value;
                 const qtd = row.querySelector('.i-qtd').value;
                 const adicional = row.querySelector('.i-adicional').value;
-                itensDoGrupo += `${item};${tam};${num};${qtd};${adicional}\n`;
+
+                // O SEGREDO ESTÁ AQUI: Adicionamos a modelagem como a 6ª COLUNA de cada linha
+                conteudo += `${item};${tam};${num};${qtd};${adicional};${nomeMod}\n`;
             }
         });
-
-        if (itensDoGrupo !== "") {
-            conteudo += `\nMODELAGEM;${nomeMod || "Não Especificada"}\nITEM;TAM;NUM;QTD;ADICIONAL\n${itensDoGrupo}`;
-        }
     });
+
+
 
     if (!temItemValido) {
         alert("Adicione pelo menos um item ao pedido.");
