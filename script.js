@@ -117,56 +117,65 @@ function adicionarLinhaItem(botao) {
     });
 }
 
-// 4. ENVIAR PARA O SUPABASE (Lógica inteligente para Nome da Modelagem)
+// 4. ENVIAR PARA O SUPABASE (Lógica otimizada e agrupamento para Android)
 async function enviarPedido() {
     const params = new URLSearchParams(window.location.search);
     const emailAtendente = params.get('atendente');
-    const nome = document.getElementById('clienteNome').value;
-    const fone = document.getElementById('clienteTelefone').value;
-    const obsGerais = document.getElementById('observacoesGerais').value;
+    const nome = document.getElementById('clienteNome').value.trim();
+    const fone = document.getElementById('clienteTelefone').value.trim();
+    const obsGerais = document.getElementById('observacoesGerais').value.trim();
 
+    // Validação básica
     if (!nome || !fone) {
         alert("Por favor, preencha Nome e WhatsApp.");
         return;
     }
 
     const btn = document.getElementById('btnFinalizar');
+    
+    // Feedback visual imediato
     btn.disabled = true;
     btn.innerText = "⏳ ENVIANDO PEDIDO...";
 
-   
-
-    let conteudo = `NOME;${nome}\nTELEFONE;${fone}\nOBS;${obsGerais}\n`;
+    // Montagem do cabeçalho
+    let conteudo = `NOME;${nome.toUpperCase()}\nTELEFONE;${fone}\nOBS;${obsGerais}\n`;
     let temItemValido = false;
 
-    document.querySelectorAll('.grupo-modelagem').forEach(grupo => {
+    // Captura todos os grupos de modelagem
+    const grupos = document.querySelectorAll('.grupo-modelagem');
+
+    grupos.forEach(grupo => {
         const selectMod = grupo.querySelector('.i-mod-nome');
         const inputManual = grupo.querySelector('.i-mod-manual');
         
+        // Lógica para pegar o nome da modelagem (Select ou Input Manual)
         let nomeMod = selectMod.value;
         if (nomeMod === "OUTRA") {
-            nomeMod = inputManual.value || "Outra não definida";
+            nomeMod = inputManual.value || "OUTRA";
         }
-        // Garante que o nome da modelagem não tenha ponto e vírgula para não quebrar o sistema
-        nomeMod = nomeMod.replace(/;/g, "").trim().toUpperCase();
+        
+        // Limpeza do nome da modelagem para o padrão do Android
+        nomeMod = (nomeMod || "PADRÃO").replace(/;/g, "").trim().toUpperCase();
 
+        // Percorre as linhas de itens deste grupo específico
         grupo.querySelectorAll('.corpo-tabela-itens tr').forEach(row => {
-            const item = row.querySelector('.i-nome').value;
+            const item = row.querySelector('.i-nome').value.trim();
+            
             if (item) {
                 temItemValido = true;
-                const tam = row.querySelector('.i-tam').value;
-                const num = row.querySelector('.i-num').value;
-                const qtd = row.querySelector('.i-qtd').value;
-                const adicional = row.querySelector('.i-adicional').value;
+                const tam = row.querySelector('.i-tam').value.trim().toUpperCase();
+                const num = row.querySelector('.i-num').value.trim();
+                const qtd = row.querySelector('.i-qtd').value.trim();
+                const adicional = row.querySelector('.i-adicional').value.trim();
 
-                // O SEGREDO ESTÁ AQUI: Adicionamos a modelagem como a 6ª COLUNA de cada linha
-                conteudo += `${item};${tam};${num};${qtd};${adicional};${nomeMod}\n`;
+                // ESTRUTURA PARA O ANDROID (6 COLUNAS): 
+                // NOME;TAM;NUM;QTD;ADICIONAL;MODELAGEM
+                conteudo += `${item.toUpperCase()};${tam};${num};${qtd};${adicional};${nomeMod}\n`;
             }
         });
     });
 
-
-
+    // Se não tiver nenhum item, cancela o envio
     if (!temItemValido) {
         alert("Adicione pelo menos um item ao pedido.");
         btn.disabled = false;
@@ -175,6 +184,7 @@ async function enviarPedido() {
     }
 
     try {
+        // Envio para o Supabase
         const { error } = await _supabase
             .from('pedidos_clientes')
             .insert([{ 
@@ -184,12 +194,15 @@ async function enviarPedido() {
             }]);
 
         if (error) throw error;
+
+        // Sucesso: Esconde formulário e mostra tela de agradecimento
         document.getElementById('formulario-pedido').style.display = 'none';
         document.getElementById('tela-sucesso').style.display = 'block';
-        window.scrollTo(0, 0);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
     } catch (err) {
-        console.error(err);
-        alert("Erro ao enviar pedido.");
+        console.error("Erro no Supabase:", err);
+        alert("Ocorreu um erro ao enviar. Verifique sua conexão.");
         btn.disabled = false;
         btn.innerText = "TENTAR NOVAMENTE";
     }
