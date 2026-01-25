@@ -136,21 +136,73 @@ td { padding: 8px 5px; }
 td input { padding: 10px; height: 42px; font-size: 14px; border-width: 1px; }
 
 /* 7. BOTÕES */
-button { border: none; cursor: pointer; transition: all 0.2s ease; font-family: inherit; display: flex; align-items: center; justify-content: center; }
+button { 
+    border: none; 
+    cursor: pointer; 
+    transition: all 0.2s ease; 
+    font-family: inherit; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+}
 
+/* Botão de Adicionar Nova Modelagem (Verde Secundário) */
+.btn-sec { 
+    width: 100%; 
+    background: #02a834;      /* Verde Esmeralda */
+    color: #ffffff;           /* Texto Branco */
+    padding: 16px; 
+    border-radius: 12px; 
+    font-weight: 700; 
+    font-size: 15px;
+    border: 2px solid #b4b4b4; /* Borda Verde Escura */
+    margin-bottom: 10px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.btn-sec:hover {
+    background: #0d9488;      /* Escurece levemente o verde ao passar o mouse */
+    transform: translateY(-2px); 
+}
+
+/* Botão de Adicionar Item (Dentro da tabela - Azul Suave) */
 .btn-add-item {
-    background: #eff6ff; color: #2563eb; padding: 14px; border-radius: 12px;
-    font-weight: 700; font-size: 14px; width: 100%; margin-top: 10px; border: 2px dashed #bfdbfe;
+    background: #eff6ff; 
+    color: #2563eb; 
+    padding: 14px; 
+    border-radius: 12px;
+    font-weight: 700; 
+    font-size: 14px; 
+    width: 100%; 
+    margin-top: 10px; 
+    border: 2px dashed #bfdbfe;
 }
 
-.btn-sec { width: 100%; background: #ffffff; color: #2563eb; padding: 14px; border-radius: 12px; font-weight: 700; border: 2px solid #2563eb; }
+.btn-add-item:hover {
+    background: #dbeafe;
+    border-color: #3b82f6;
+}
 
+/* Botão Principal (Verde Vibrante - Finalizar) */
 .btn-main { 
-    width: 100%; background: #10b981; color: white; padding: 20px; 
-    border-radius: 16px; font-size: 18px; font-weight: 800; margin-top: 10px;
-    box-shadow: 0 10px 20px -5px rgba(16, 185, 129, 0.4);
+    width: 100%; 
+    background: #02b419;      /* Verde limão vibrante */
+    color: #ffffff;           /* Texto em verde muito escuro para contraste */
+    padding: 20px; 
+    border-radius: 16px; 
+    font-size: 18px; 
+    font-weight: 800; 
+    margin-top: 15px;
+    text-transform: uppercase;
+    box-shadow: 0 10px 20px -5px rgba(0, 241, 32, 0.4);
 }
 
+.btn-main:hover {
+    background: #00d81c;      /* Brilho ajustado */
+    transform: scale(1.01);   /* Leve pulsação */
+}
+
+/* Botões de Excluir (Vermelho Suave) */
 .btn-del-header, .btn-del { 
     background: #fee2e2; 
     color: #ef4444; 
@@ -159,9 +211,13 @@ button { border: none; cursor: pointer; transition: all 0.2s ease; font-family: 
     height: 48px; 
     flex-shrink: 0;
     font-size: 18px;
+    font-weight: bold;
 }
-.btn-del-header:hover, .btn-del:hover { background: #fecaca; }
 
+.btn-del-header:hover, .btn-del:hover {
+    background: #fecaca;
+    color: #dc2626;
+}
 /* 8. SUCESSO E RESPONSIVIDADE */
 .icone-sucesso { font-size: 64px; margin-bottom: 15px; }
 
