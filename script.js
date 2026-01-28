@@ -6,13 +6,25 @@ const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let listaModelagens = [];
 let listaTecidos = []; 
 
+// FUNÇÃO AUXILIAR PARA PEGAR O E-MAIL (LIMPO OU COMPLETO)
+function obterEmailVendedor() {
+    const params = new URLSearchParams(window.location.search);
+    // Tenta pegar 'id' ou 'atendente' para manter compatibilidade
+    let vendedorId = params.get('id') || params.get('atendente');
+
+    if (vendedorId && !vendedorId.includes('@')) {
+        // Se o link veio limpo, nós adicionamos o @gmail.com para o banco de dados achar
+        vendedorId = vendedorId + "@gmail.com";
+    }
+    return vendedorId;
+}
+
 // 1. CARREGAR PERFIL AO ABRIR
 async function carregarPerfil() {
-    const params = new URLSearchParams(window.location.search);
-    const email = params.get('atendente');
+    const email = obterEmailVendedor();
 
     if (email) {
-        const { data } = await _supabase
+        const { data, error } = await _supabase
             .from('perfis_usuarios')
             .select('*')
             .eq('email_usuario', email)
@@ -26,12 +38,10 @@ async function carregarPerfil() {
                 listaModelagens = data.modelagens.split(',').map(item => item.trim());
             }
 
-            // CARREGA TECIDOS (Ajustado para popular o select sempre)
             if (data.tecidos) {
                 listaTecidos = data.tecidos.split(',').map(item => item.trim());
             }
             
-            // CHAMADA OBRIGATÓRIA: Garante que o "OUTRA" apareça sempre
             popularSelectTecido();
 
             if (data.url_logo) {
@@ -39,27 +49,26 @@ async function carregarPerfil() {
                 img.src = data.url_logo;
                 img.style.display = 'inline-block';
             }
+        } else {
+            document.getElementById('nome-empresa').innerText = "Vendedor não Identificado";
+            popularSelectTecido();
         }
     } else {
-        document.getElementById('nome-empresa').innerText = "Vendedor não Identificado";
-        popularSelectTecido(); // Garante o select mesmo sem vendedor
+        document.getElementById('nome-empresa').innerText = "Link Inválido";
+        popularSelectTecido();
     }
     adicionarGrupoModelagem();
 }
 
-// Preenche o Select de Tecidos (Garante a opção manual)
+// Preenche o Select de Tecidos
 function popularSelectTecido() {
     const select = document.getElementById('clienteTecidoSelect');
     if(!select) return;
 
     let html = '<option value="">Selecione o tecido...</option>';
-    
-    // Adiciona tecidos do banco se existirem
     listaTecidos.forEach(tec => {
         if(tec) html += `<option value="${tec}">${tec}</option>`;
     });
-
-    // ADICIONA SEMPRE A OPÇÃO MANUAL
     html += `<option value="OUTRA">➕ Outro (Escrever manualmente)</option>`;
     select.innerHTML = html;
 }
@@ -150,8 +159,7 @@ function adicionarLinhaItem(botao) {
 
 // 4. ENVIAR PARA O SUPABASE
 async function enviarPedido() {
-    const params = new URLSearchParams(window.location.search);
-    const emailAtendente = params.get('atendente');
+    const emailAtendente = obterEmailVendedor();
     const nome = document.getElementById('clienteNome').value.trim();
     const fone = document.getElementById('clienteTelefone').value.trim();
     const obsGerais = document.getElementById('observacoesGerais').value.trim();
@@ -224,4 +232,5 @@ async function enviarPedido() {
     }
 }
 
+// INICIALIZAÇÃO
 carregarPerfil();
