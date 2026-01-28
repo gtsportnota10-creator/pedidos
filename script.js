@@ -6,24 +6,16 @@ const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let listaModelagens = [];
 let listaTecidos = []; 
 
-// 1. CARREGAR PERFIL AO ABRIR (AJUSTADO PARA LINK LIMPO)
+// 1. CARREGAR PERFIL AO ABRIR
 async function carregarPerfil() {
     const params = new URLSearchParams(window.location.search);
-    
-    // Tenta pegar 'id', se não achar, tenta 'atendente' (para manter compatibilidade)
-    let vendedorId = params.get('id') || params.get('atendente');
+    const email = params.get('atendente');
 
-    if (vendedorId) {
-        // TRUQUE: Se o link veio sem o @gmail.com, nós completamos aqui
-        if (!vendedorId.includes('@')) {
-            vendedorId = vendedorId + "@gmail.com";
-        }
-
-        // Agora usamos o vendedorId (email completo) para buscar no banco
+    if (email) {
         const { data } = await _supabase
             .from('perfis_usuarios')
             .select('*')
-            .eq('email_usuario', vendedorId)
+            .eq('email_usuario', email)
             .single();
 
         if (data) {
@@ -34,10 +26,12 @@ async function carregarPerfil() {
                 listaModelagens = data.modelagens.split(',').map(item => item.trim());
             }
 
+            // CARREGA TECIDOS (Ajustado para popular o select sempre)
             if (data.tecidos) {
                 listaTecidos = data.tecidos.split(',').map(item => item.trim());
             }
             
+            // CHAMADA OBRIGATÓRIA: Garante que o "OUTRA" apareça sempre
             popularSelectTecido();
 
             if (data.url_logo) {
@@ -48,7 +42,7 @@ async function carregarPerfil() {
         }
     } else {
         document.getElementById('nome-empresa').innerText = "Vendedor não Identificado";
-        popularSelectTecido(); 
+        popularSelectTecido(); // Garante o select mesmo sem vendedor
     }
     adicionarGrupoModelagem();
 }
@@ -153,18 +147,11 @@ function adicionarLinhaItem(botao) {
     `;
     corpo.appendChild(tr);
 }
-// 4. ENVIAR PARA O SUPABASE (CORRIGIDO)
+
+// 4. ENVIAR PARA O SUPABASE
 async function enviarPedido() {
     const params = new URLSearchParams(window.location.search);
-    
-    // Tenta pegar 'id' ou 'atendente'
-    let emailAtendente = params.get('id') || params.get('atendente');
-
-    // Completa o e-mail se necessário (fundamental para o Supabase filtrar certo)
-    if (emailAtendente && !emailAtendente.includes('@')) {
-        emailAtendente = emailAtendente + "@gmail.com";
-    }
-
+    const emailAtendente = params.get('atendente');
     const nome = document.getElementById('clienteNome').value.trim();
     const fone = document.getElementById('clienteTelefone').value.trim();
     const obsGerais = document.getElementById('observacoesGerais').value.trim();
@@ -236,3 +223,5 @@ async function enviarPedido() {
         btn.innerText = "TENTAR NOVAMENTE";
     }
 }
+
+carregarPerfil();
