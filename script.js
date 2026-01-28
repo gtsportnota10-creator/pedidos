@@ -1,11 +1,12 @@
-// CONFIGURAÇÕES DO SUPABASE (Mantido)
+// CONFIGURAÇÕES DO SUPABASE
 const SUPABASE_URL = 'https://kvhvelquxtcxukpkdabg.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt2aHZlbHF1eHRjeHVrcGtkYWJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg3MTk0MDAsImV4cCI6MjA4NDI5NTQwMH0.gVCU4i1M5GGR96bDHExFBMKuDOcpl7khj10zycbky-U';
 const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let listaModelagens = [];
+let listaTecidos = []; 
 
-// 1. CARREGAR PERFIL AO ABRIR (Mantido)
+// 1. CARREGAR PERFIL AO ABRIR
 async function carregarPerfil() {
     const params = new URLSearchParams(window.location.search);
     const email = params.get('atendente');
@@ -20,9 +21,19 @@ async function carregarPerfil() {
         if (data) {
             document.getElementById('nome-empresa').innerText = data.nome_empresa;
             document.getElementById('nome-atendente').innerText = `Atendimento: ${data.nome_atendente}`;
+            
             if (data.modelagens) {
                 listaModelagens = data.modelagens.split(',').map(item => item.trim());
             }
+
+            // CARREGA TECIDOS (Ajustado para popular o select sempre)
+            if (data.tecidos) {
+                listaTecidos = data.tecidos.split(',').map(item => item.trim());
+            }
+            
+            // CHAMADA OBRIGATÓRIA: Garante que o "OUTRA" apareça sempre
+            popularSelectTecido();
+
             if (data.url_logo) {
                 const img = document.getElementById('logo-empresa');
                 img.src = data.url_logo;
@@ -31,11 +42,41 @@ async function carregarPerfil() {
         }
     } else {
         document.getElementById('nome-empresa').innerText = "Vendedor não Identificado";
+        popularSelectTecido(); // Garante o select mesmo sem vendedor
     }
     adicionarGrupoModelagem();
 }
 
-// 2. ADICIONAR UM NOVO GRUPO (Com lógica de "Outra" modelagem)
+// Preenche o Select de Tecidos (Garante a opção manual)
+function popularSelectTecido() {
+    const select = document.getElementById('clienteTecidoSelect');
+    if(!select) return;
+
+    let html = '<option value="">Selecione o tecido...</option>';
+    
+    // Adiciona tecidos do banco se existirem
+    listaTecidos.forEach(tec => {
+        if(tec) html += `<option value="${tec}">${tec}</option>`;
+    });
+
+    // ADICIONA SEMPRE A OPÇÃO MANUAL
+    html += `<option value="OUTRA">➕ Outro (Escrever manualmente)</option>`;
+    select.innerHTML = html;
+}
+
+// Mostra/Esconde campo manual do Tecido
+function alternarTecidoManual(select) {
+    const campoManual = document.getElementById('clienteTecidoManual');
+    if (select.value === "OUTRA") {
+        campoManual.style.display = "block";
+        campoManual.focus();
+    } else {
+        campoManual.style.display = "none";
+        campoManual.value = ""; 
+    }
+}
+
+// 2. ADICIONAR UM NOVO GRUPO (Modelagem)
 function adicionarGrupoModelagem() {
     const container = document.getElementById('container-modelagens');
     
@@ -43,7 +84,6 @@ function adicionarGrupoModelagem() {
     listaModelagens.forEach(mod => {
         opcoesHtml += `<option value="${mod}">${mod}</option>`;
     });
-    // Adiciona a opção para escrita manual
     opcoesHtml += `<option value="OUTRA">➕ Outra (Escrever manualmente)</option>`;
 
     const div = document.createElement('div');
@@ -82,7 +122,6 @@ function adicionarGrupoModelagem() {
     adicionarLinhaItem(div.querySelector('.btn-add-item'));
 }
 
-// Função para mostrar/esconder o campo de texto manual
 function alternarCampoManual(select) {
     const campoManual = select.closest('.header-modelagem').querySelector('.i-mod-manual');
     if (select.value === "OUTRA") {
@@ -94,7 +133,7 @@ function alternarCampoManual(select) {
     }
 }
 
-// 3. ADICIONAR LINHA DE ITEM (Mantido)
+// 3. ADICIONAR LINHA DE ITEM
 function adicionarLinhaItem(botao) {
     const corpo = botao.closest('.grupo-modelagem').querySelector('.corpo-tabela-itens');
     const tr = document.createElement('tr');
@@ -107,17 +146,9 @@ function adicionarLinhaItem(botao) {
         <td><button class="btn-del" onclick="this.closest('tr').remove()">✕</button></td>
     `;
     corpo.appendChild(tr);
-
-    tr.querySelectorAll('input').forEach(input => {
-        input.addEventListener('focus', function() {
-            const wrapper = this.closest('.tabela-wrapper');
-            const offsetLeft = this.parentElement.offsetLeft;
-            wrapper.scrollTo({ left: offsetLeft - 20, behavior: 'smooth' });
-        });
-    });
 }
 
-// 4. ENVIAR PARA O SUPABASE (Lógica otimizada e agrupamento para Android)
+// 4. ENVIAR PARA O SUPABASE
 async function enviarPedido() {
     const params = new URLSearchParams(window.location.search);
     const emailAtendente = params.get('atendente');
@@ -125,66 +156,54 @@ async function enviarPedido() {
     const fone = document.getElementById('clienteTelefone').value.trim();
     const obsGerais = document.getElementById('observacoesGerais').value.trim();
 
-    // Validação básica
-    if (!nome || !fone) {
-        alert("Por favor, preencha Nome e WhatsApp.");
+    const selectTec = document.getElementById('clienteTecidoSelect');
+    const inputTecManual = document.getElementById('clienteTecidoManual');
+    let tecidoFinal = (selectTec.value === "OUTRA") ? inputTecManual.value : selectTec.value;
+
+    if (!nome || !fone || !tecidoFinal) {
+        alert("Por favor, preencha Nome, WhatsApp e Tecido.");
         return;
     }
 
     const btn = document.getElementById('btnFinalizar');
-    
-    // Feedback visual imediato
     btn.disabled = true;
-    btn.innerText = "⏳ ENVIANDO PEDIDO...";
+    btn.innerText = "⏳ ENVIANDO...";
 
-    // Montagem do cabeçalho
-    let conteudo = `NOME;${nome.toUpperCase()}\nTELEFONE;${fone}\nOBS;${obsGerais}\n`;
+    let conteudo = `NOME;${nome.toUpperCase()}\n`;
+    conteudo += `TELEFONE;${fone}\n`;
+    conteudo += `TECIDO;${tecidoFinal.toUpperCase()}\n`;
+    conteudo += `OBS;${obsGerais}\n`;
+
     let temItemValido = false;
-
-    // Captura todos os grupos de modelagem
     const grupos = document.querySelectorAll('.grupo-modelagem');
 
     grupos.forEach(grupo => {
         const selectMod = grupo.querySelector('.i-mod-nome');
         const inputManual = grupo.querySelector('.i-mod-manual');
-        
-        // Lógica para pegar o nome da modelagem (Select ou Input Manual)
-        let nomeMod = selectMod.value;
-        if (nomeMod === "OUTRA") {
-            nomeMod = inputManual.value || "OUTRA";
-        }
-        
-        // Limpeza do nome da modelagem para o padrão do Android
+        let nomeMod = (selectMod.value === "OUTRA") ? inputManual.value : selectMod.value;
         nomeMod = (nomeMod || "PADRÃO").replace(/;/g, "").trim().toUpperCase();
 
-        // Percorre as linhas de itens deste grupo específico
         grupo.querySelectorAll('.corpo-tabela-itens tr').forEach(row => {
             const item = row.querySelector('.i-nome').value.trim();
-            
             if (item) {
                 temItemValido = true;
                 const tam = row.querySelector('.i-tam').value.trim().toUpperCase();
                 const num = row.querySelector('.i-num').value.trim();
                 const qtd = row.querySelector('.i-qtd').value.trim();
                 const adicional = row.querySelector('.i-adicional').value.trim();
-
-                // ESTRUTURA PARA O ANDROID (6 COLUNAS): 
-                // NOME;TAM;NUM;QTD;ADICIONAL;MODELAGEM
                 conteudo += `${item.toUpperCase()};${tam};${num};${qtd};${adicional};${nomeMod}\n`;
             }
         });
     });
 
-    // Se não tiver nenhum item, cancela o envio
     if (!temItemValido) {
-        alert("Adicione pelo menos um item ao pedido.");
+        alert("Adicione pelo menos um item.");
         btn.disabled = false;
         btn.innerText = "FINALIZAR PEDIDO";
         return;
     }
 
     try {
-        // Envio para o Supabase
         const { error } = await _supabase
             .from('pedidos_clientes')
             .insert([{ 
@@ -194,18 +213,15 @@ async function enviarPedido() {
             }]);
 
         if (error) throw error;
-
-        // Sucesso: Esconde formulário e mostra tela de agradecimento
         document.getElementById('formulario-pedido').style.display = 'none';
         document.getElementById('tela-sucesso').style.display = 'block';
         window.scrollTo({ top: 0, behavior: 'smooth' });
-
     } catch (err) {
-        console.error("Erro no Supabase:", err);
-        alert("Ocorreu um erro ao enviar. Verifique sua conexão.");
+        console.error(err);
+        alert("Erro ao enviar.");
         btn.disabled = false;
         btn.innerText = "TENTAR NOVAMENTE";
     }
 }
 
-window.onload = carregarPerfil;
+carregarPerfil();
