@@ -1,80 +1,224 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Portal de Pedidos</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-</head>
-<body>
+// CONFIGURAÇÕES DO SUPABASE
+const SUPABASE_URL = 'https://kvhvelquxtcxukpkdabg.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt2aHZlbHF1eHRjeHVrcGtkYWJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg3MTk0MDAsImV4cCI6MjA4NDI5NTQwMH0.gVCU4i1M5GGR96bDHExFBMKuDOcpl7khj10zycbky-U';
+const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    <div class="app-container">
-        <header class="header">
-            <div id="container-perfil">
-                <img id="logo-empresa" src="" alt="Logo" style="display:none;">
-                <h1 id="nome-empresa">Carregando...</h1>
-                <p id="nome-atendente"></p>
-            </div>
-        </header>
+let listaModelagens = [];
+let listaTecidos = []; 
 
-        <div id="formulario-pedido">
-            <section class="card">
-                <h2>Dados do Cliente</h2>
-                
-                <div class="grid-campos">
-                    <div class="campo">
-                        <label>Nome</label>
-                        <input type="text" id="clienteNome" placeholder="Seu nome">
-                    </div>
-                    <div class="campo">
-                        <label>WhatsApp</label>
-                        <input type="tel" id="clienteTelefone" placeholder="(00) 00000-0000">
-                    </div>
-                </div>
+// 1. FUNÇÃO PARA PEGAR E CORRIGIR O E-MAIL DA URL
+function obterEmailVendedor() {
+    const params = new URLSearchParams(window.location.search);
+    // Tenta pegar 'id' (novo) ou 'atendente' (antigo)
+    let vendedorId = params.get('id') || params.get('atendente');
 
-                <div class="campo" style="margin-top: 15px;">
-    <label>Tecido / Material</label>
-    <select id="clienteTecidoSelect" onchange="alternarTecidoManual(this)" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ddd; font-weight: bold; background: white;">
-        <option value="">Carregando tecidos...</option>
-    </select>
+    if (vendedorId && !vendedorId.includes('@')) {
+        // Se enviamos apenas "gtsportnota10", ele vira "gtsportnota10@gmail.com"
+        vendedorId = vendedorId + "@gmail.com";
+    }
+    return vendedorId;
+}
+
+// 2. CARREGAR PERFIL AO ABRIR
+async function carregarPerfil() {
+    const email = obterEmailVendedor();
+
+    if (email) {
+        const { data, error } = await _supabase
+            .from('perfis_usuarios')
+            .select('*')
+            .eq('email_usuario', email)
+            .single();
+
+        if (data) {
+            document.getElementById('nome-empresa').innerText = data.nome_empresa;
+            document.getElementById('nome-atendente').innerText = `Atendimento: ${data.nome_atendente}`;
+            
+            if (data.modelagens) {
+                listaModelagens = data.modelagens.split(',').map(item => item.trim());
+            }
+
+            if (data.tecidos) {
+                listaTecidos = data.tecidos.split(',').map(item => item.trim());
+            }
+            
+            popularSelectTecido();
+
+            if (data.url_logo) {
+                const img = document.getElementById('logo-empresa');
+                img.src = data.url_logo;
+                img.style.display = 'inline-block';
+            }
+        } else {
+            console.error("Vendedor não encontrado no banco:", email);
+            document.getElementById('nome-empresa').innerText = "Vendedor não Identificado";
+            popularSelectTecido();
+        }
+    } else {
+        document.getElementById('nome-empresa').innerText = "Link Inválido";
+        popularSelectTecido();
+    }
+    adicionarGrupoModelagem();
+}
+
+// Preenche o Select de Tecidos
+function popularSelectTecido() {
+    const select = document.getElementById('clienteTecidoSelect');
+    if(!select) return;
+
+    let html = '<option value="">Selecione o tecido...</option>';
+    listaTecidos.forEach(tec => {
+        if(tec) html += `<option value="${tec}">${tec}</option>`;
+    });
+    html += `<option value="OUTRA">➕ Outro (Escrever manualmente)</option>`;
+    select.innerHTML = html;
+}
+
+function alternarTecidoManual(select) {
+    const campoManual = document.getElementById('clienteTecidoManual');
+    if (select.value === "OUTRA") {
+        campoManual.style.display = "block";
+        campoManual.focus();
+    } else {
+        campoManual.style.display = "none";
+        campoManual.value = ""; 
+    }
+}
+
+// ADICIONAR UM NOVO GRUPO (Modelagem)
+function adicionarGrupoModelagem() {
+    const container = document.getElementById('container-modelagens');
     
-    <input type="text" id="clienteTecidoManual" placeholder="Qual o nome do tecido?" 
-           style="display:none; margin-top: 10px; border-style: dashed; border-color: #3b82f6; width: 100%; padding: 10px; border-radius: 8px;">
-</div>
+    let opcoesHtml = '<option value="">Selecione a modelagem...</option>';
+    listaModelagens.forEach(mod => {
+        opcoesHtml += `<option value="${mod}">${mod}</option>`;
+    });
+    opcoesHtml += `<option value="OUTRA">➕ Outra (Escrever manualmente)</option>`;
 
-                <div class="campo" style="margin-top: 15px;">
-                    <label>Observações Gerais</label>
-                    <textarea id="observacoesGerais" placeholder="Algum detalhe adicional para a produção?" rows="2"></textarea>
-                </div>
-            </section>
-
-            <div id="container-modelagens"></div>
-
-            <div class="acoes-pedido">
-                <button type="button" class="btn-sec" onclick="adicionarGrupoModelagem()">
-                    ➕ Outra Modelagem 
-                </button>
-
-                <button class="btn-main" id="btnFinalizar" onclick="enviarPedido()">
-                    FINALIZAR PEDIDO
-                </button>
+    const div = document.createElement('div');
+    div.className = 'grupo-modelagem';
+    div.innerHTML = `
+        <div class="header-modelagem">
+            <label class="label-modelagem">Modelagem</label>
+            <div class="row-modelagem">
+                <select class="i-mod-nome" onchange="alternarCampoManual(this)" style="font-weight: bold;">
+                    ${opcoesHtml}
+                </select>
+                <button type="button" class="btn-del-header" onclick="this.closest('.grupo-modelagem').remove()">✕</button>
             </div>
+            <input type="text" class="i-mod-manual" placeholder="Qual o nome da modelagem?" 
+                   style="display:none; margin-top: 10px; border-style: dashed; border-color: #3b82f6;">
         </div>
-
-        <div id="tela-sucesso" style="display:none;">
-            <div class="card" style="text-align:center; padding: 40px 20px;">
-                <div class="icone-sucesso">✅</div>
-                <h2 style="color: #10b981; border:none;">Pedido Recebido!</h2>
-                <p style="color: #64748b;">O seu pedido já foi enviado para nossa produção com sucesso.</p>
-                <button class="btn-sec" onclick="window.location.reload()" style="margin-top: 20px;">
-                    Fazer Novo Pedido
-                </button>
-            </div>
+        
+        <div class="tabela-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 30%;">Nome</th>
+                        <th style="width: 15%;">Tamanho</th>
+                        <th style="width: 15%;">Número</th>
+                        <th style="width: 15%;">Quantidade</th>
+                        <th style="width: 25%;">Adicional</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody class="corpo-tabela-itens"></tbody>
+            </table>
         </div>
-    </div>
+        <button type="button" class="btn-add-item" onclick="adicionarLinhaItem(this)">+ Adicionar Item</button>
+    `;
+    container.appendChild(div);
+    adicionarLinhaItem(div.querySelector('.btn-add-item'));
+}
 
-    <script src="script.js"></script>
-</body>
-</html>
+function alternarCampoManual(select) {
+    const campoManual = select.closest('.header-modelagem').querySelector('.i-mod-manual');
+    if (select.value === "OUTRA") {
+        campoManual.style.display = "block";
+        campoManual.focus();
+    } else {
+        campoManual.style.display = "none";
+        campoManual.value = ""; 
+    }
+}
+
+function adicionarLinhaItem(botao) {
+    const corpo = botao.closest('.grupo-modelagem').querySelector('.corpo-tabela-itens');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td><input type="text" class="i-nome" placeholder="Nome"></td>
+        <td><input type="text" class="i-tam" placeholder="G" oninput="this.value = this.value.toUpperCase()"></td>
+        <td><input type="text" class="i-num" placeholder="Nº"></td>
+        <td><input type="number" class="i-qtd" value="1"></td>
+        <td><input type="text" class="i-adicional" placeholder="Conjunto"></td>
+        <td><button class="btn-del" onclick="this.closest('tr').remove()">✕</button></td>
+    `;
+    corpo.appendChild(tr);
+}
+
+// 4. ENVIAR PARA O SUPABASE
+async function enviarPedido() {
+    const emailAtendente = obterEmailVendedor();
+    const nome = document.getElementById('clienteNome').value.trim();
+    const fone = document.getElementById('clienteTelefone').value.trim();
+    const obsGerais = document.getElementById('observacoesGerais').value.trim();
+
+    const selectTec = document.getElementById('clienteTecidoSelect');
+    const inputTecManual = document.getElementById('clienteTecidoManual');
+    let tecidoFinal = (selectTec.value === "OUTRA") ? inputTecManual.value : selectTec.value;
+
+    if (!nome || !fone || !tecidoFinal) {
+        alert("Preencha Nome, WhatsApp e Tecido.");
+        return;
+    }
+
+    const btn = document.getElementById('btnFinalizar');
+    btn.disabled = true;
+    btn.innerText = "⏳ ENVIANDO...";
+
+    let conteudo = `NOME;${nome.toUpperCase()}\nTELEFONE;${fone}\nTECIDO;${tecidoFinal.toUpperCase()}\nOBS;${obsGerais}\n`;
+
+    let temItemValido = false;
+    document.querySelectorAll('.grupo-modelagem').forEach(grupo => {
+        const selectMod = grupo.querySelector('.i-mod-nome');
+        const inputManual = grupo.querySelector('.i-mod-manual');
+        let nomeMod = (selectMod.value === "OUTRA") ? inputManual.value : selectMod.value;
+        nomeMod = (nomeMod || "PADRÃO").toUpperCase();
+
+        grupo.querySelectorAll('.corpo-tabela-itens tr').forEach(row => {
+            const item = row.querySelector('.i-nome').value.trim();
+            if (item) {
+                temItemValido = true;
+                const tam = row.querySelector('.i-tam').value.trim().toUpperCase();
+                const num = row.querySelector('.i-num').value.trim();
+                const qtd = row.querySelector('.i-qtd').value.trim();
+                const adicional = row.querySelector('.i-adicional').value.trim();
+                conteudo += `${item.toUpperCase()};${tam};${num};${qtd};${adicional};${nomeMod}\n`;
+            }
+        });
+    });
+
+    if (!temItemValido) {
+        alert("Adicione pelo menos um item.");
+        btn.disabled = false;
+        return;
+    }
+
+    try {
+        const { error } = await _supabase.from('pedidos_clientes').insert([{ 
+            cliente_email: emailAtendente, 
+            conteudo_texto: conteudo, 
+            status: 'pendente' 
+        }]);
+
+        if (error) throw error;
+        document.getElementById('formulario-pedido').style.display = 'none';
+        document.getElementById('tela-sucesso').style.display = 'block';
+    } catch (err) {
+        alert("Erro ao enviar.");
+        btn.disabled = false;
+    }
+}
+
+// Inicializa o processo
+carregarPerfil();
