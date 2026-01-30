@@ -26,22 +26,22 @@ function obterEmailVendedor() {
     return vendedorId;
 }
 
-// 1. CARREGAR PERFIL AO ABRIR
 async function carregarPerfil() {
     const email = obterEmailVendedor();
 
     if (email) {
-        // Procure essa parte no carregarPerfil() e altere:
-const { data, error } = await _supabase
-    .from('perfis_usuarios')
-    .select('*')
-    .ilike('email_usuario', `%${email}%`) // O % faz ele buscar "qualquer coisa que contenha esse nome"
-    .single();
+        const { data, error } = await _supabase
+            .from('perfis_usuarios')
+            .select('*')
+            .eq('email_usuario', email) // Busca o e-mail exato
+            .single();
 
         if (data) {
+            // Se achou, preenche os campos
             document.getElementById('nome-empresa').innerText = data.nome_empresa;
             document.getElementById('nome-atendente').innerText = `Atendimento: ${data.nome_atendente}`;
             
+            // ... restante do seu código (tecidos, modelagens e logo)
             if (data.modelagens) {
                 listaModelagens = data.modelagens.split(',').map(item => item.trim());
             }
