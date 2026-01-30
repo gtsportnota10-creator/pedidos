@@ -9,13 +9,20 @@ let listaTecidos = [];
 // FUNÇÃO AUXILIAR PARA PEGAR O E-MAIL (LIMPO OU COMPLETO)
 function obterEmailVendedor() {
     const params = new URLSearchParams(window.location.search);
-    // Tenta pegar 'id' ou 'atendente' para manter compatibilidade
+    // Tenta pegar o 'id' (do link novo) ou 'atendente' (do link antigo)
     let vendedorId = params.get('id') || params.get('atendente');
 
-    if (vendedorId && !vendedorId.includes('@')) {
-        // Se o link veio limpo, nós adicionamos o @gmail.com para o banco de dados achar
-        vendedorId = vendedorId + "@gmail.com";
+    if (vendedorId) {
+        // Remove espaços em branco que podem vir no link por erro
+        vendedorId = vendedorId.trim();
+
+        // Se o ID NÃO tem @, significa que é um link antigo ou simplificado
+        // Só adicionamos o @gmail.com se ele realmente não tiver um domínio
+        if (!vendedorId.includes('@')) {
+            vendedorId = vendedorId + "@gmail.com";
+        }
     }
+    
     return vendedorId;
 }
 
@@ -24,11 +31,12 @@ async function carregarPerfil() {
     const email = obterEmailVendedor();
 
     if (email) {
-        const { data, error } = await _supabase
-            .from('perfis_usuarios')
-            .select('*')
-            .eq('email_usuario', email)
-            .single();
+        // Procure essa parte no carregarPerfil() e altere:
+const { data, error } = await _supabase
+    .from('perfis_usuarios')
+    .select('*')
+    .ilike('email_usuario', `%${email}%`) // O % faz ele buscar "qualquer coisa que contenha esse nome"
+    .single();
 
         if (data) {
             document.getElementById('nome-empresa').innerText = data.nome_empresa;
