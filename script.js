@@ -13,51 +13,50 @@ function obterEmailVendedor() {
     let vendedorId = params.get('id') || params.get('atendente');
 
     if (vendedorId) {
-        // Remove espaços em branco que podem vir no link por erro
-        vendedorId = vendedorId.trim();
-
-        // Se o ID NÃO tem @, significa que é um link antigo ou simplificado
-        // Só adicionamos o @gmail.com se ele realmente não tiver um domínio
-        if (!vendedorId.includes('@')) {
-            vendedorId = vendedorId + "@gmail.com";
-        }
+        // Retorna o ID limpo e em minúsculo para evitar erros
+        return vendedorId.trim().toLowerCase();
     }
     
-    return vendedorId;
+    return null;
 }
 
 async function carregarPerfil() {
-    const email = obterEmailVendedor();
+    const identificador = obterEmailVendedor();
 
-    if (email) {
+    if (identificador) {
+        // USAMOS ILIKE PARA BUSCAR O NOME DENTRO DO E-MAIL
+        // Exemplo: se identificador for "gtsportnota10", ele acha "gtsportnota10@gmail.com"
         const { data, error } = await _supabase
             .from('perfis_usuarios')
             .select('*')
-            .eq('email_usuario', email) // Busca o e-mail exato
-            .single();
+            .ilike('email_usuario', `%${identificador}%`) 
+            .maybeSingle(); // maybeSingle evita erros se não encontrar nada
 
         if (data) {
             // Se achou, preenche os campos
             document.getElementById('nome-empresa').innerText = data.nome_empresa;
             document.getElementById('nome-atendente').innerText = `Atendimento: ${data.nome_atendente}`;
             
-            // ... restante do seu código (tecidos, modelagens e logo)
+            // Carrega Modelagens
             if (data.modelagens) {
                 listaModelagens = data.modelagens.split(',').map(item => item.trim());
             }
 
+            // Carrega Tecidos
             if (data.tecidos) {
                 listaTecidos = data.tecidos.split(',').map(item => item.trim());
             }
             
             popularSelectTecido();
 
+            // Carrega a Logo
             if (data.url_logo) {
                 const img = document.getElementById('logo-empresa');
                 img.src = data.url_logo;
                 img.style.display = 'inline-block';
             }
         } else {
+            // Caso o banco de dados não retorne nenhum registro
             document.getElementById('nome-empresa').innerText = "Vendedor não Identificado";
             popularSelectTecido();
         }
@@ -67,7 +66,6 @@ async function carregarPerfil() {
     }
     adicionarGrupoModelagem();
 }
-
 // Preenche o Select de Tecidos
 function popularSelectTecido() {
     const select = document.getElementById('clienteTecidoSelect');
