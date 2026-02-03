@@ -184,8 +184,6 @@ async function enviarPedido() {
     btn.innerText = "⏳ ENVIANDO...";
 
     try {
-        // --- NOVIDADE: BUSCAR O E-MAIL REAL ANTES DE ENVIAR ---
-        // Isso garante que o pedido caia na conta certa do vendedor
         const { data: perfil } = await _supabase
             .from('perfis_usuarios')
             .select('email_usuario')
@@ -210,29 +208,36 @@ async function enviarPedido() {
 
             grupo.querySelectorAll('.corpo-tabela-itens tr').forEach(row => {
                 const item = row.querySelector('.i-nome').value.trim();
-                if (item) {
+                const tam = row.querySelector('.i-tam').value.trim().toUpperCase();
+                const qtd = row.querySelector('.i-qtd').value.trim();
+                
+                // --- NOVA LÓGICA DE VALIDAÇÃO ---
+                // Aceita se tiver o nome do item OU se tiver tamanho e quantidade
+                if (item !== "" || (tam !== "" && qtd !== "")) {
                     temItemValido = true;
-                    const tam = row.querySelector('.i-tam').value.trim().toUpperCase();
-                    const num = row.querySelector('.i-num').value.trim();
-                    const qtd = row.querySelector('.i-qtd').value.trim();
-                    const adicional = row.querySelector('.i-adicional').value.trim();
-                    conteudo += `${item.toUpperCase()};${tam};${num};${qtd};${adicional};${nomeMod}\n`;
+                    
+                    const num = row.querySelector('.i-num').value.trim() || "0";
+                    const adicional = row.querySelector('.i-adicional').value.trim() || "";
+                    
+                    // Se o item estiver vazio, salvamos como "ITEM" ou apenas vazio
+                    const nomeItemFinal = item ? item.toUpperCase() : "ITEM";
+                    
+                    conteudo += `${nomeItemFinal};${tam};${num};${qtd};${adicional};${nomeMod}\n`;
                 }
             });
         });
 
         if (!temItemValido) {
-            alert("Adicione pelo menos um item.");
+            alert("Adicione pelo menos um item ou tamanho/quantidade.");
             btn.disabled = false;
             btn.innerText = "FINALIZAR PEDIDO";
             return;
         }
 
-        // --- ENVIO PARA A TABELA DE PEDIDOS ---
         const { error } = await _supabase
             .from('pedidos_clientes')
             .insert([{ 
-                cliente_email: emailReal, // Agora enviamos o e-mail completo encontrado
+                cliente_email: emailReal, 
                 conteudo_texto: conteudo, 
                 status: 'pendente' 
             }]);
@@ -250,6 +255,3 @@ async function enviarPedido() {
         btn.innerText = "TENTAR NOVAMENTE";
     }
 }
-
-// INICIALIZAÇÃO
-carregarPerfil();
