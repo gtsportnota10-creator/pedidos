@@ -6,18 +6,17 @@ const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let listaModelagens = [];
 let listaTecidos = []; 
 
-// FUNÇÃO AUXILIAR PARA PEGAR O E-MAIL (LIMPO OU COMPLETO)
 function obterEmailVendedor() {
+    const urlAtual = window.location.href;
     const params = new URLSearchParams(window.location.search);
-    // Tenta pegar o 'id' (do link novo) ou 'atendente' (do link antigo)
     let vendedorId = params.get('id') || params.get('atendente');
 
-    if (vendedorId) {
-        // Retorna o ID limpo e em minúsculo para evitar erros
-        return vendedorId.trim().toLowerCase();
+    // Se o TinyURL bugou o parâmetro, tentamos pegar direto da string
+    if (!vendedorId && urlAtual.includes('id=')) {
+        vendedorId = urlAtual.split('id=')[1].split('&')[0];
     }
-    
-    return null;
+
+    return vendedorId ? vendedorId.trim().toLowerCase() : null;
 }
 
 async function carregarPerfil() {
