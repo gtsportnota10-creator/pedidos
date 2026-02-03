@@ -160,91 +160,93 @@ function adicionarLinhaItem(botao) {
 }
 
 
+// 4. ENVIAR PARA O SUPABASE (Corrigido para aceitar Tamanho e Qtd)
 async function enviarPedido() {
-    const identificador = obterEmailVendedor();
-    const nome = document.getElementById('clienteNome').value.trim();
-    const fone = document.getElementById('clienteTelefone').value.trim();
-    const obsGerais = document.getElementById('observacoesGerais').value.trim();
+    const identificador = obterEmailVendedor();
+    const nome = document.getElementById('clienteNome').value.trim();
+    const fone = document.getElementById('clienteTelefone').value.trim();
+    const obsGerais = document.getElementById('observacoesGerais').value.trim();
 
-    const selectTec = document.getElementById('clienteTecidoSelect');
-    const inputTecManual = document.getElementById('clienteTecidoManual');
-    let tecidoFinal = (selectTec.value === "OUTRA") ? inputTecManual.value : selectTec.value;
+    const selectTec = document.getElementById('clienteTecidoSelect');
+    const inputTecManual = document.getElementById('clienteTecidoManual');
+    let tecidoFinal = (selectTec.value === "OUTRA") ? inputTecManual.value : selectTec.value;
 
-    if (!nome || !fone || !tecidoFinal) {
-        alert("Por favor, preencha Nome, WhatsApp e Tecido.");
-        return;
-    }
+    if (!nome || !fone || !tecidoFinal) {
+        alert("Por favor, preencha Nome, WhatsApp e Tecido.");
+        return;
+    }
 
-    const btn = document.getElementById('btnFinalizar');
-    btn.disabled = true;
-    btn.innerText = "⏳ ENVIANDO...";
+    const btn = document.getElementById('btnFinalizar');
+    btn.disabled = true;
+    btn.innerText = "⏳ ENVIANDO...";
 
-    try {
-        // --- NOVIDADE: BUSCAR O E-MAIL REAL ANTES DE ENVIAR ---
-        // Isso garante que o pedido caia na conta certa do vendedor
-        const { data: perfil } = await _supabase
-            .from('perfis_usuarios')
-            .select('email_usuario')
-            .ilike('email_usuario', `%${identificador}%`)
-            .maybeSingle();
+    try {
+        const { data: perfil } = await _supabase
+            .from('perfis_usuarios')
+            .select('email_usuario')
+            .ilike('email_usuario', `%${identificador}%`)
+            .maybeSingle();
 
-        const emailReal = perfil ? perfil.email_usuario : identificador;
+        const emailReal = perfil ? perfil.email_usuario : identificador;
 
-        let conteudo = `NOME;${nome.toUpperCase()}\n`;
-        conteudo += `TELEFONE;${fone}\n`;
-        conteudo += `TECIDO;${tecidoFinal.toUpperCase()}\n`;
-        conteudo += `OBS;${obsGerais}\n`;
+        let conteudo = `NOME;${nome.toUpperCase()}\n`;
+        conteudo += `TELEFONE;${fone}\n`;
+        conteudo += `TECIDO;${tecidoFinal.toUpperCase()}\n`;
+        conteudo += `OBS;${obsGerais}\n`;
 
-        let temItemValido = false;
-        const grupos = document.querySelectorAll('.grupo-modelagem');
+        let temItemValido = false;
+        const grupos = document.querySelectorAll('.grupo-modelagem');
 
-        grupos.forEach(grupo => {
-            const selectMod = grupo.querySelector('.i-mod-nome');
-            const inputManual = grupo.querySelector('.i-mod-manual');
-            let nomeMod = (selectMod.value === "OUTRA") ? inputManual.value : selectMod.value;
-            nomeMod = (nomeMod || "PADRÃO").replace(/;/g, "").trim().toUpperCase();
+        grupos.forEach(grupo => {
+            const selectMod = grupo.querySelector('.i-mod-nome');
+            const inputManual = grupo.querySelector('.i-mod-manual');
+            let nomeMod = (selectMod.value === "OUTRA") ? inputManual.value : selectMod.value;
+            nomeMod = (nomeMod || "PADRÃO").replace(/;/g, "").trim().toUpperCase();
 
-            grupo.querySelectorAll('.corpo-tabela-itens tr').forEach(row => {
-                const item = row.querySelector('.i-nome').value.trim();
-                if (item) {
-                    temItemValido = true;
-                    const tam = row.querySelector('.i-tam').value.trim().toUpperCase();
-                    const num = row.querySelector('.i-num').value.trim();
-                    const qtd = row.querySelector('.i-qtd').value.trim();
-                    const adicional = row.querySelector('.i-adicional').value.trim();
-                    conteudo += `${item.toUpperCase()};${tam};${num};${qtd};${adicional};${nomeMod}\n`;
-                }
-            });
-        });
+            grupo.querySelectorAll('.corpo-tabela-itens tr').forEach(row => {
+                const item = row.querySelector('.i-nome').value.trim();
+                const tam = row.querySelector('.i-tam').value.trim().toUpperCase();
+                const qtd = row.querySelector('.i-qtd').value.trim();
 
-        if (!temItemValido) {
-            alert("Adicione pelo menos um item.");
-            btn.disabled = false;
-            btn.innerText = "FINALIZAR PEDIDO";
-            return;
-        }
+                // --- REGRA: ACEITAR SE TIVER NOME OU SE TIVER TAMANHO+QTD ---
+                if (item !== "" || (tam !== "" && qtd !== "")) {
+                    temItemValido = true;
+                    const num = row.querySelector('.i-num').value.trim();
+                    const adicional = row.querySelector('.i-adicional').value.trim();
+                    
+                    conteudo += `${item.toUpperCase()};${tam};${num};${qtd};${adicional};${nomeMod}\n`;
+                }
+            });
+        });
 
-        // --- ENVIO PARA A TABELA DE PEDIDOS ---
-        const { error } = await _supabase
-            .from('pedidos_clientes')
-            .insert([{ 
-                cliente_email: emailReal, // Agora enviamos o e-mail completo encontrado
-                conteudo_texto: conteudo, 
-                status: 'pendente' 
-            }]);
+        if (!temItemValido) {
+            alert("Adicione pelo menos um item (ou tamanho e quantidade).");
+            btn.disabled = false;
+            btn.innerText = "FINALIZAR PEDIDO";
+            return;
+        }
 
-        if (error) throw error;
+        const { error } = await _supabase
+            .from('pedidos_clientes')
+            .insert([{ 
+                cliente_email: emailReal, 
+                conteudo_texto: conteudo, 
+                status: 'pendente' 
+            }]);
 
-        document.getElementById('formulario-pedido').style.display = 'none';
-        document.getElementById('tela-sucesso').style.display = 'block';
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        if (error) throw error;
 
-    } catch (err) {
-        console.error(err);
-        alert("Erro ao enviar pedido. Verifique sua conexão.");
-        btn.disabled = false;
-        btn.innerText = "TENTAR NOVAMENTE";
-    }
+        document.getElementById('formulario-pedido').style.display = 'none';
+        document.getElementById('tela-sucesso').style.display = 'block';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    } catch (err) {
+        console.error(err);
+        alert("Erro ao enviar pedido.");
+        btn.disabled = false;
+        btn.innerText = "TENTAR NOVAMENTE";
+    }
+}
 }
 
 // INICIALIZAÇÃO
