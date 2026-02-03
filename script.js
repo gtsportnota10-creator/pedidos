@@ -21,7 +21,7 @@ function obterEmailVendedor() {
 
 async function carregarPerfil() {
     const identificador = obterEmailVendedor();
-    console.log("Identificador buscado:", identificador); // Para você testar no F12
+    console.log("Identificador buscado:", identificador); 
 
     if (identificador) {
         const { data, error } = await _supabase
@@ -32,11 +32,9 @@ async function carregarPerfil() {
 
         if (data) {
             console.log("Dados encontrados:", data);
-            // Preenche os textos
             if(document.getElementById('nome-empresa')) document.getElementById('nome-empresa').innerText = data.nome_empresa || "GTBot Empresa";
             if(document.getElementById('nome-atendente')) document.getElementById('nome-atendente').innerText = `Atendimento: ${data.nome_atendente || 'Geral'}`;
             
-            // Carrega Listas do Banco
             if (data.modelagens) {
                 listaModelagens = data.modelagens.split(',').map(item => item.trim());
             }
@@ -46,7 +44,6 @@ async function carregarPerfil() {
             
             popularSelectTecido();
 
-            // Carrega a Logo
             const img = document.getElementById('logo-empresa');
             if (data.url_logo && img) {
                 img.src = data.url_logo;
@@ -63,6 +60,8 @@ async function carregarPerfil() {
     }
     adicionarGrupoModelagem();
 }
+
+
 // Preenche o Select de Tecidos
 function popularSelectTecido() {
     const select = document.getElementById('clienteTecidoSelect');
@@ -160,7 +159,7 @@ function adicionarLinhaItem(botao) {
     corpo.appendChild(tr);
 }
 
-me ajuda a corrigir esse codigo: // 4. ENVIAR PARA O SUPABASE
+
 async function enviarPedido() {
     const identificador = obterEmailVendedor();
     const nome = document.getElementById('clienteNome').value.trim();
