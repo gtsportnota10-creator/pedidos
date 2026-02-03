@@ -210,25 +210,21 @@ async function enviarPedido() {
                 const item = row.querySelector('.i-nome').value.trim();
                 const tam = row.querySelector('.i-tam').value.trim().toUpperCase();
                 const qtd = row.querySelector('.i-qtd').value.trim();
-                
-                // --- NOVA LÓGICA DE VALIDAÇÃO ---
-                // Aceita se tiver o nome do item OU se tiver tamanho e quantidade
+
+                // --- ALTERAÇÃO AQUI: ACEITA SE TIVER ITEM OU SE TIVER TAMANHO+QTD ---
                 if (item !== "" || (tam !== "" && qtd !== "")) {
                     temItemValido = true;
+                    const num = row.querySelector('.i-num').value.trim();
+                    const adicional = row.querySelector('.i-adicional').value.trim();
                     
-                    const num = row.querySelector('.i-num').value.trim() || "0";
-                    const adicional = row.querySelector('.i-adicional').value.trim() || "";
-                    
-                    // Se o item estiver vazio, salvamos como "ITEM" ou apenas vazio
-                    const nomeItemFinal = item ? item.toUpperCase() : "ITEM";
-                    
-                    conteudo += `${nomeItemFinal};${tam};${num};${qtd};${adicional};${nomeMod}\n`;
+                    // Envia o nome do item (se houver), senão envia vazio antes do primeiro ";"
+                    conteudo += `${item.toUpperCase()};${tam};${num};${qtd};${adicional};${nomeMod}\n`;
                 }
             });
         });
 
         if (!temItemValido) {
-            alert("Adicione pelo menos um item ou tamanho/quantidade.");
+            alert("Adicione pelo menos um item.");
             btn.disabled = false;
             btn.innerText = "FINALIZAR PEDIDO";
             return;
