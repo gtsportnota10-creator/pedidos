@@ -22,27 +22,25 @@ function obterEmailVendedor() {
 
 async function carregarPerfil() {
     const identificador = obterEmailVendedor();
+    console.log("Identificador buscado:", identificador); // Para você testar no F12
 
     if (identificador) {
-        // USAMOS ILIKE PARA BUSCAR O NOME DENTRO DO E-MAIL
-        // Exemplo: se identificador for "gtsportnota10", ele acha "gtsportnota10@gmail.com"
         const { data, error } = await _supabase
             .from('perfis_usuarios')
             .select('*')
             .ilike('email_usuario', `%${identificador}%`) 
-            .maybeSingle(); // maybeSingle evita erros se não encontrar nada
+            .maybeSingle();
 
         if (data) {
-            // Se achou, preenche os campos
-            document.getElementById('nome-empresa').innerText = data.nome_empresa;
-            document.getElementById('nome-atendente').innerText = `Atendimento: ${data.nome_atendente}`;
+            console.log("Dados encontrados:", data);
+            // Preenche os textos
+            if(document.getElementById('nome-empresa')) document.getElementById('nome-empresa').innerText = data.nome_empresa || "GTBot Empresa";
+            if(document.getElementById('nome-atendente')) document.getElementById('nome-atendente').innerText = `Atendimento: ${data.nome_atendente || 'Geral'}`;
             
-            // Carrega Modelagens
+            // Carrega Listas do Banco
             if (data.modelagens) {
                 listaModelagens = data.modelagens.split(',').map(item => item.trim());
             }
-
-            // Carrega Tecidos
             if (data.tecidos) {
                 listaTecidos = data.tecidos.split(',').map(item => item.trim());
             }
@@ -50,18 +48,18 @@ async function carregarPerfil() {
             popularSelectTecido();
 
             // Carrega a Logo
-            if (data.url_logo) {
-                const img = document.getElementById('logo-empresa');
+            const img = document.getElementById('logo-empresa');
+            if (data.url_logo && img) {
                 img.src = data.url_logo;
                 img.style.display = 'inline-block';
             }
         } else {
-            // Caso o banco de dados não retorne nenhum registro
+            console.log("Nenhum perfil encontrado no banco.");
             document.getElementById('nome-empresa').innerText = "Vendedor não Identificado";
             popularSelectTecido();
         }
     } else {
-        document.getElementById('nome-empresa').innerText = "Link Inválido";
+        document.getElementById('nome-empresa').innerText = "Link de Acesso Inválido";
         popularSelectTecido();
     }
     adicionarGrupoModelagem();
