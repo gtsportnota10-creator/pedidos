@@ -11,7 +11,6 @@ function obterEmailVendedor() {
     const params = new URLSearchParams(window.location.search);
     let vendedorId = params.get('id') || params.get('atendente');
 
-    // Se o TinyURL bugou o parâmetro, tentamos pegar direto da string
     if (!vendedorId && urlAtual.includes('id=')) {
         vendedorId = urlAtual.split('id=')[1].split('&')[0];
     }
@@ -21,8 +20,6 @@ function obterEmailVendedor() {
 
 async function carregarPerfil() {
     const identificador = obterEmailVendedor();
-    console.log("Identificador buscado:", identificador); 
-
     if (identificador) {
         const { data, error } = await _supabase
             .from('perfis_usuarios')
@@ -31,16 +28,11 @@ async function carregarPerfil() {
             .maybeSingle();
 
         if (data) {
-            console.log("Dados encontrados:", data);
             if(document.getElementById('nome-empresa')) document.getElementById('nome-empresa').innerText = data.nome_empresa || "GTBot Empresa";
             if(document.getElementById('nome-atendente')) document.getElementById('nome-atendente').innerText = `Atendimento: ${data.nome_atendente || 'Geral'}`;
             
-            if (data.modelagens) {
-                listaModelagens = data.modelagens.split(',').map(item => item.trim());
-            }
-            if (data.tecidos) {
-                listaTecidos = data.tecidos.split(',').map(item => item.trim());
-            }
+            if (data.modelagens) listaModelagens = data.modelagens.split(',').map(item => item.trim());
+            if (data.tecidos) listaTecidos = data.tecidos.split(',').map(item => item.trim());
             
             popularSelectTecido();
 
@@ -50,7 +42,6 @@ async function carregarPerfil() {
                 img.style.display = 'inline-block';
             }
         } else {
-            console.log("Nenhum perfil encontrado no banco.");
             document.getElementById('nome-empresa').innerText = "Vendedor não Identificado";
             popularSelectTecido();
         }
@@ -61,12 +52,9 @@ async function carregarPerfil() {
     adicionarGrupoModelagem();
 }
 
-
-// Preenche o Select de Tecidos
 function popularSelectTecido() {
     const select = document.getElementById('clienteTecidoSelect');
     if(!select) return;
-
     let html = '<option value="">Selecione o tecido...</option>';
     listaTecidos.forEach(tec => {
         if(tec) html += `<option value="${tec}">${tec}</option>`;
@@ -75,7 +63,6 @@ function popularSelectTecido() {
     select.innerHTML = html;
 }
 
-// Mostra/Esconde campo manual do Tecido
 function alternarTecidoManual(select) {
     const campoManual = document.getElementById('clienteTecidoManual');
     if (select.value === "OUTRA") {
@@ -87,10 +74,8 @@ function alternarTecidoManual(select) {
     }
 }
 
-// 2. ADICIONAR UM NOVO GRUPO (Modelagem)
 function adicionarGrupoModelagem() {
     const container = document.getElementById('container-modelagens');
-    
     let opcoesHtml = '<option value="">Selecione a modelagem...</option>';
     listaModelagens.forEach(mod => {
         opcoesHtml += `<option value="${mod}">${mod}</option>`;
@@ -111,7 +96,6 @@ function adicionarGrupoModelagem() {
             <input type="text" class="i-mod-manual" placeholder="Qual o nome da modelagem?" 
                    style="display:none; margin-top: 10px; border-style: dashed; border-color: #3b82f6;">
         </div>
-        
         <div class="tabela-wrapper">
             <table>
                 <thead>
@@ -144,7 +128,6 @@ function alternarCampoManual(select) {
     }
 }
 
-// 3. ADICIONAR LINHA DE ITEM
 function adicionarLinhaItem(botao) {
     const corpo = botao.closest('.grupo-modelagem').querySelector('.corpo-tabela-itens');
     const tr = document.createElement('tr');
@@ -158,7 +141,6 @@ function adicionarLinhaItem(botao) {
     `;
     corpo.appendChild(tr);
 }
-
 
 // 4. ENVIAR PARA O SUPABASE (Corrigido para aceitar Tamanho e Qtd)
 async function enviarPedido() {
@@ -204,23 +186,26 @@ async function enviarPedido() {
             nomeMod = (nomeMod || "PADRÃO").replace(/;/g, "").trim().toUpperCase();
 
             grupo.querySelectorAll('.corpo-tabela-itens tr').forEach(row => {
-                const item = row.querySelector('.i-nome').value.trim();
+                const itemRaw = row.querySelector('.i-nome').value.trim();
                 const tam = row.querySelector('.i-tam').value.trim().toUpperCase();
                 const qtd = row.querySelector('.i-qtd').value.trim();
 
-                // --- REGRA: ACEITAR SE TIVER NOME OU SE TIVER TAMANHO+QTD ---
-                if (item !== "" || (tam !== "" && qtd !== "")) {
+                // Lógica de aceitação: Nome preenchido OU (Tamanho E Quantidade preenchidos)
+                if (itemRaw !== "" || (tam !== "" && qtd !== "")) {
                     temItemValido = true;
                     const num = row.querySelector('.i-num').value.trim();
                     const adicional = row.querySelector('.i-adicional').value.trim();
                     
-                    conteudo += `${item.toUpperCase()};${tam};${num};${qtd};${adicional};${nomeMod}\n`;
+                    // Se o item estiver vazio, envia apenas vazio antes do ";"
+                    const nomeItem = itemRaw ? itemRaw.toUpperCase() : "";
+                    
+                    conteudo += `${nomeItem};${tam};${num};${qtd};${adicional};${nomeMod}\n`;
                 }
             });
         });
 
         if (!temItemValido) {
-            alert("Adicione pelo menos um item (ou tamanho e quantidade).");
+            alert("Preencha o Nome do Item ou pelo menos Tamanho e Quantidade.");
             btn.disabled = false;
             btn.innerText = "FINALIZAR PEDIDO";
             return;
@@ -246,7 +231,6 @@ async function enviarPedido() {
         btn.disabled = false;
         btn.innerText = "TENTAR NOVAMENTE";
     }
-}
 }
 
 // INICIALIZAÇÃO
