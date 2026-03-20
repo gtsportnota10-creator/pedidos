@@ -9,6 +9,8 @@ let listaTecidos = [];
 // Variáveis de memória para manter o tecido selecionado no próximo grupo
 let ultimoTecidoSelecionado = "";
 let ultimoTecidoManual = "";
+let carregandoRascunho = false; // Impede que o sistema salve por cima enquanto reconstrói a tela
+
 
 function obterEmailVendedor() {
     const urlAtual = window.location.href;
@@ -22,35 +24,72 @@ function obterEmailVendedor() {
     return vendedorId ? vendedorId.trim().toLowerCase() : null;
 }
 
-async function carregarPerfil() {
-    const identificador = obterEmailVendedor();
-    if (identificador) {
-        const { data, error } = await _supabase
-            .from('perfis_usuarios')
-            .select('*')
-            .ilike('email_usuario', `%${identificador}%`) 
-            .maybeSingle();
 
-        if (data) {
-            if(document.getElementById('nome-empresa')) document.getElementById('nome-empresa').innerText = data.nome_empresa || "GTBot Empresa";
-            if(document.getElementById('nome-atendente')) document.getElementById('nome-atendente').innerText = `Atendimento: ${data.nome_atendente || 'Geral'}`;
-            
-            if (data.modelagens) listaModelagens = data.modelagens.split(',').map(item => item.trim());
-            if (data.tecidos) listaTecidos = data.tecidos.split(',').map(item => item.trim());
-            
-            const img = document.getElementById('logo-empresa');
-            if (data.url_logo && img) {
-                img.src = data.url_logo;
-                img.style.display = 'inline-block';
+// --- CORREÇÃO NA FUNÇÃO carregarPerfil ---
+async function carregarPerfil() {
+    carregandoRascunho = true; 
+    
+    const identificador = obterEmailVendedor();
+    
+    if (identificador) {
+        try {
+            const { data, error } = await _supabase
+                .from('perfis_usuarios')
+                .select('*')
+                .ilike('email_usuario', `%${identificador}%`) 
+                .maybeSingle();
+
+            if (data) {
+                if(document.getElementById('nome-empresa')) document.getElementById('nome-empresa').innerText = data.nome_empresa || "GTBot Empresa";
+                if(document.getElementById('nome-atendente')) document.getElementById('nome-atendente').innerText = `Atendimento: ${data.nome_atendente || 'Geral'}`;
+                
+                if (data.modelagens) listaModelagens = data.modelagens.split(',').map(item => item.trim());
+                if (data.tecidos) listaTecidos = data.tecidos.split(',').map(item => item.trim());
+                
+                const img = document.getElementById('logo-empresa');
+                if (data.url_logo && img) {
+                    img.src = data.url_logo;
+                    img.style.display = 'inline-block';
+                }
+            } else {
+                if(document.getElementById('nome-empresa')) document.getElementById('nome-empresa').innerText = "Vendedor não Identificado";
             }
-        } else {
-            if(document.getElementById('nome-empresa')) document.getElementById('nome-empresa').innerText = "Vendedor não Identificado";
+        } catch (err) {
+            console.error("Erro ao carregar perfil:", err);
         }
     } else {
         if(document.getElementById('nome-empresa')) document.getElementById('nome-empresa').innerText = "Link de Acesso Inválido";
     }
-    adicionarGrupoModelagem();
-}
+
+    // --- DENTRO DA carregarPerfil ---
+// Localize esta parte no final da função e inverta a ordem como abaixo:
+
+    const rascunhoSalvo = localStorage.getItem('rascunho_pedido');
+
+    if (rascunhoSalvo) {
+        console.log("Rascunho encontrado, restaurando...");
+        restaurarRascunho(); // Primeiro restaura os dados (mesmo que em background)
+
+        const dadosRascunho = JSON.parse(rascunhoSalvo);
+        if (dadosRascunho.status === 'enviado_com_sucesso') {
+            document.getElementById('formulario-pedido').style.display = 'none';
+            document.getElementById('tela-sucesso').style.display = 'block';
+            carregandoRascunho = false;
+            const loading = document.getElementById('loading-inicial');
+            if(loading) loading.style.display = 'none';
+            return; // Agora sim, ele para aqui, mas com os dados já carregados no DOM
+        }
+    } else {
+        adicionarGrupoModelagem();
+    }
+
+    setTimeout(() => {
+        carregandoRascunho = false;
+        const loading = document.getElementById('loading-inicial');
+        if(loading) loading.style.display = 'none';
+        console.log("Sistema pronto e salvamento liberado.");
+    }, 1500); 
+} // <-- FALTAVA ESTA CHAVE
 
 // Gera o HTML das opções de tecido respeitando a memória da última escolha
 function gerarOpcoesTecido() {
@@ -65,9 +104,9 @@ function gerarOpcoesTecido() {
     html += `<option value="OUTRA" ${outSelected}>➕ Outro (Escrever manualmente)</option>`;
     return html;
 }
-
-function adicionarGrupoModelagem() {
+function adicionarGrupoModelagem(criarLinhaPadrao = true) {
     const container = document.getElementById('container-modelagens');
+    if (!container) return; // Segurança contra erro de DOM
     
     // Preparar Modelagens
     let opcoesModHtml = '<option value="">Selecione a modelagem...</option>';
@@ -82,7 +121,7 @@ function adicionarGrupoModelagem() {
         <div class="header-modelagem">
             <div class="campo" style="margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 15px;">
                 <label class="label-modelagem">Tecido / Material</label>
-                <select class="i-tec-nome" onchange="alternarTecidoManualGrupo(this)" style="font-weight: bold;">
+                <select class="i-tec-nome" onchange="alternarTecidoManualGrupo(this); salvarRascunho();" style="font-weight: bold;">
                     ${gerarOpcoesTecido()}
                 </select>
                 <input type="text" class="i-tec-manual" placeholder="Qual o nome do tecido?" 
@@ -92,10 +131,10 @@ function adicionarGrupoModelagem() {
 
             <label class="label-modelagem">Modelagem</label>
             <div class="row-modelagem">
-                <select class="i-mod-nome" onchange="alternarCampoManual(this)" style="font-weight: bold;">
+                <select class="i-mod-nome" onchange="alternarCampoManual(this); salvarRascunho();" style="font-weight: bold;">
                     ${opcoesModHtml}
                 </select>
-                <button type="button" class="btn-del-header" onclick="this.closest('.grupo-modelagem').remove()">✕</button>
+                <button type="button" class="btn-del-header" onclick="this.closest('.grupo-modelagem').remove(); salvarRascunho();">✕</button>
             </div>
             <input type="text" class="i-mod-manual" placeholder="Qual o nome da modelagem?" 
                    style="display:none; margin-top: 10px; border-style: dashed; border-color: #3b82f6;">
@@ -118,7 +157,15 @@ function adicionarGrupoModelagem() {
         <button type="button" class="btn-add-item" onclick="adicionarLinhaItem(this)">+ Adicionar Item nesta Modelagem</button>
     `;
     container.appendChild(div);
-    adicionarLinhaItem(div.querySelector('.btn-add-item'));
+
+    if (criarLinhaPadrao) {
+        adicionarLinhaItem(div.querySelector('.btn-add-item'));
+    }
+
+    // AJUSTE: Só salva se não estiver carregando o rascunho
+    if (!carregandoRascunho) {
+        salvarRascunho();
+    }
 }
 
 function alternarTecidoManualGrupo(select) {
@@ -136,11 +183,18 @@ function alternarTecidoManualGrupo(select) {
     }
 }
 
-// Monitora digitação manual para salvar na memória
 document.addEventListener('input', (e) => {
+    if (carregandoRascunho) return; // Não salva enquanto o sistema preenche os campos sozinho
+    
     if (e.target.classList.contains('i-tec-manual')) {
         ultimoTecidoManual = e.target.value;
     }
+    salvarRascunho();
+});
+
+// Monitora mudanças em Selects (que não disparam 'input' em alguns navegadores)
+document.addEventListener('change', (e) => {
+    salvarRascunho();
 });
 
 function alternarCampoManual(select) {
@@ -163,9 +217,16 @@ function adicionarLinhaItem(botao) {
         <td><input type="text" class="i-num" placeholder="Nº"></td>
         <td><input type="number" class="i-qtd" value="1"></td>
         <td><input type="text" class="i-adicional" placeholder="Conjunto"></td>
-        <td><button class="btn-del" onclick="this.closest('tr').remove()">✕</button></td>
+        
+<td><button type="button" class="btn-del" onclick="this.closest('tr').remove(); salvarRascunho();">✕</button></td>
     `;
     corpo.appendChild(tr);
+
+    // AJUSTE DE SEGURANÇA:
+    // Só dispara o salvamento se o usuário clicou no botão (não durante o carregamento)
+    if (!carregandoRascunho) {
+        salvarRascunho();
+    }
 }
 
 function enviarPedido() {
@@ -264,6 +325,7 @@ function fecharConferencia() {
     document.getElementById('modal-conferencia').style.display = 'none';
 }
 function prepararNovoPedido() {
+    localStorage.removeItem('rascunho_pedido');
     // 1. Limpa Cabeçalho
     document.getElementById('clienteNome').value = "";
     document.getElementById('clienteTelefone').value = "";
@@ -285,6 +347,7 @@ function prepararNovoPedido() {
     document.getElementById('formulario-pedido').style.display = 'block';
     
     window.scrollTo({ top: 0, behavior: 'smooth' });
+
 }
 
 
@@ -353,11 +416,20 @@ async function confirmarEEnviar() {
                 conteudo_texto: conteudo, 
                 status: 'pendente' 
             }]);
+       
+// ... dentro do try da confirmarEEnviar ...
+if (error) throw error;
 
-        if (error) throw error;
+// Pegamos o que já existe para não perder os dados dos grupos
+const rascunhoParaSalvar = JSON.parse(localStorage.getItem('rascunho_pedido') || "{}");
+rascunhoParaSalvar.status = 'enviado_com_sucesso'; 
+
+// Salva com o status para a tela de sucesso persistir no Refresh
+localStorage.setItem('rascunho_pedido', JSON.stringify(rascunhoParaSalvar));
+
+
 
         // --- SUCESSO ---
-        // Destravamos o botão para caso o usuário volte para editar depois
         btnConfirmar.disabled = false;
         btnConfirmar.innerText = "✅ ENVIAR AGORA";
 
@@ -376,15 +448,24 @@ async function confirmarEEnviar() {
     }
 }
 
-
 function voltarParaEditar() {
-    // Esconde a tela de sucesso
+    carregandoRascunho = true; // Trava o salvamento enquanto limpa
+
+    const rascunhoAtual = JSON.parse(localStorage.getItem('rascunho_pedido') || "{}");
+    if (rascunhoAtual.status) {
+        delete rascunhoAtual.status;
+        localStorage.setItem('rascunho_pedido', JSON.stringify(rascunhoAtual));
+    }
+
+    // Mostra as telas
     document.getElementById('tela-sucesso').style.display = 'none';
-    
-    // Mostra o formulário de pedido novamente com os dados preservados
     document.getElementById('formulario-pedido').style.display = 'block';
     
-    // Rola a página suavemente para o início
+    // Pequeno delay para garantir que o DOM está pronto antes de liberar o salvamento
+    setTimeout(() => {
+        carregandoRascunho = false;
+    }, 500);
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -450,5 +531,148 @@ function enviarWhatsApp() {
     window.open(linkZap, '_blank');
 }
 
+// --- FUNÇÕES DE RASCUNHO (SESSION STORAGE) ---
+
+
+
+// A função salvarRascunho completa e corrigida:
+function salvarRascunho() {
+    if (carregandoRascunho) return; 
+
+    const rascunho = {
+        clienteNome: document.getElementById('clienteNome')?.value || "",
+        clienteTelefone: document.getElementById('clienteTelefone')?.value || "",
+        observacoesGerais: document.getElementById('observacoesGerais')?.value || "",
+        grupos: []
+    };
+
+    const grupos = document.querySelectorAll('.grupo-modelagem');
+    grupos.forEach(grupo => {
+        const dadosGrupo = {
+            tecido: grupo.querySelector('.i-tec-nome').value,
+            tecidoManual: grupo.querySelector('.i-tec-manual').value,
+            modelagem: grupo.querySelector('.i-mod-nome').value,
+            modelagemManual: grupo.querySelector('.i-mod-manual').value,
+            itens: []
+        };
+
+        grupo.querySelectorAll('.corpo-tabela-itens tr').forEach(row => {
+            dadosGrupo.itens.push({
+                nome: row.querySelector('.i-nome').value,
+                tam: row.querySelector('.i-tam').value,
+                num: row.querySelector('.i-num').value,
+                qtd: row.querySelector('.i-qtd').value,
+                adicional: row.querySelector('.i-adicional').value
+            });
+        });
+        rascunho.grupos.push(dadosGrupo);
+    });
+
+    // SEMPRE LOCALSTORAGE PARA O CELULAR
+    localStorage.setItem('rascunho_pedido', JSON.stringify(rascunho));
+}
+
+function restaurarRascunho() {
+    const dadosSalvos = localStorage.getItem('rascunho_pedido');
+    if (!dadosSalvos) return;
+
+    const rascunho = JSON.parse(dadosSalvos);
+
+    // Restaurar campos de texto simples
+    if(document.getElementById('clienteNome')) document.getElementById('clienteNome').value = rascunho.clienteNome || "";
+    if(document.getElementById('clienteTelefone')) document.getElementById('clienteTelefone').value = rascunho.clienteTelefone || "";
+    if(document.getElementById('observacoesGerais')) document.getElementById('observacoesGerais').value = rascunho.observacoesGerais || "";
+
+    const container = document.getElementById('container-modelagens');
+    if (!container) return;
+    
+    // Limpa o container para reconstruir
+    container.innerHTML = "";
+
+    // SEGURANÇA: Se o rascunho não tem grupos, adiciona um vazio e para por aqui
+    if (!rascunho.grupos || rascunho.grupos.length === 0) {
+        adicionarGrupoModelagem(true);
+        return;
+    }
+
+    // Se tem grupos, reconstrói um por um
+    rascunho.grupos.forEach((g) => {
+        // Criamos o grupo sem a linha padrão para inserir os dados do rascunho
+        adicionarGrupoModelagem(false); 
+        
+        const gruposNoDOM = document.querySelectorAll('.grupo-modelagem');
+        const ultimoGrupo = gruposNoDOM[gruposNoDOM.length - 1];
+
+        // Seletores
+        const selTec = ultimoGrupo.querySelector('.i-tec-nome');
+        const selMod = ultimoGrupo.querySelector('.i-mod-nome');
+        const inpTecM = ultimoGrupo.querySelector('.i-tec-manual');
+        const inpModM = ultimoGrupo.querySelector('.i-mod-manual');
+        
+        // Aplica os valores dos Selects
+        if(selTec) selTec.value = g.tecido || "";
+        if(selMod) selMod.value = g.modelagem || "";
+        
+        // Restaura campos manuais (Outros) e a visibilidade deles
+        if(inpTecM) {
+            inpTecM.value = g.tecidoManual || "";
+            inpTecM.style.display = g.tecido === 'OUTRA' ? 'block' : 'none';
+        }
+        if(inpModM) {
+            inpModM.value = g.modelagemManual || "";
+            inpModM.style.display = g.modelagem === 'OUTRA' ? 'block' : 'none';
+        }
+
+        // Reconstrói as linhas da tabela deste grupo
+        const corpoTabela = ultimoGrupo.querySelector('.corpo-tabela-itens');
+        if (corpoTabela && g.itens) {
+            g.itens.forEach(it => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><input type="text" class="i-nome" value="${it.nome || ''}" placeholder="Nome"></td>
+                    <td><input type="text" class="i-tam" value="${it.tam || ''}" placeholder="G" oninput="this.value = this.value.toUpperCase()"></td>
+                    <td><input type="text" class="i-num" value="${it.num || ''}" placeholder="Nº"></td>
+                    <td><input type="number" class="i-qtd" value="${it.qtd || 1}"></td>
+                    <td><input type="text" class="i-adicional" value="${it.adicional || ''}" placeholder="Conjunto"></td>
+                    <td><button type="button" class="btn-del" onclick="this.closest('tr').remove(); salvarRascunho();">✕</button></td>
+                `;
+                corpoTabela.appendChild(tr);
+            });
+        }
+    });
+}
+
+// 1. Chama o modal em vez do confirm do navegador
+function limparItensMantendoCliente() {
+    document.getElementById('modal-limpar-confirmacao').style.display = 'flex';
+}
+
+// 2. Fecha o modal se o usuário desistir
+function fecharModalLimpar() {
+    document.getElementById('modal-limpar-confirmacao').style.display = 'none';
+}
+
+// 3. Ação real de limpeza (roda quando clica em "Sim, Limpar")
+function executarLimpezaTotal() {
+    // Limpa Observações
+    const campoObs = document.getElementById('observacoesGerais');
+    if (campoObs) campoObs.value = ""; 
+
+    // Limpa Itens
+    const container = document.getElementById('container-modelagens');
+    if (container) container.innerHTML = ""; 
+
+    // Reseta memórias e cria novo grupo
+    ultimoTecidoSelecionado = "";
+    ultimoTecidoManual = "";
+    adicionarGrupoModelagem(true);
+
+    // Salva e fecha
+    salvarRascunho();
+    fecharModalLimpar();
+    
+    // Rola para o topo do formulário
+    window.scrollTo({ top: 150, behavior: 'smooth' });
+}
 // INICIALIZAÇÃO
 carregarPerfil();
